@@ -4,7 +4,7 @@
 
 #ifndef PROCESS_H
 #define PROCESS_H
-#define LongInt long long
+typedef long long LongInt;
 using namespace std;
 
 #endif
