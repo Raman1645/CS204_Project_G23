@@ -1,0 +1,7 @@
+Stack Dump (from SP to stack base):
+------------------------------
+SP: 0x7ffffffc
+FP: 0x7ffffffc
+Stack Base: 0x7ffffffc
+------------------------------
+0x7ffffffc: 0x00000000 <-- Frame Pointer <-- Stack Pointer
