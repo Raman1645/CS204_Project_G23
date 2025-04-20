@@ -11,6 +11,7 @@ st.set_page_config(
     layout="wide"
 )
 
+
 # Initialize session state for processor if not exists
 if 'processor' not in st.session_state:
     st.session_state.processor = None
