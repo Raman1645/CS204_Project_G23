@@ -1,46 +1,49 @@
 #include "structs.h"
 
-// Implementation of BranchPredictor methods declared in structs.h
+// Branch prediction implementation
 
 bool BranchPredictor::predict(const std::string &pc)
 {
-    // Increment the total predictions counter
+    // Keep track of total branch predictions requested
     predictions++;
 
-    // Check if this branch has been seen before
+    // Check branch history to see if we've encountered this address before
     if (pht.find(pc) != pht.end())
     {
-        // Return the prediction (taken or not taken)
+        // Use historical data to make prediction
         return pht[pc];
     }
-    // Default prediction for branches we haven't seen before (not taken)
+    
+    // For new branch addresses, default to not taken (conservative approach)
     return false;
 }
 
 std::string BranchPredictor::getTarget(const std::string &pc)
 {
-    // Check if we have a target address for this branch
+    // Look up target address in branch target buffer
     if (btb.find(pc) != btb.end())
     {
-        // Return the target address
+        // Found a previously recorded target address
         return btb[pc];
     }
-    // Return empty string if no target is found
+    
+    // No target information available for this branch
     return "";
 }
 
 void BranchPredictor::update(const std::string &pc, bool taken, const std::string &target)
 {
-    // Check if the prediction was correct
+    // Evaluate prediction accuracy
     if (pht.find(pc) != pht.end() && pht[pc] == taken)
     {
+        // Record successful prediction
         correct_predictions++;
     }
 
-    // Update the Pattern History Table with the actual branch outcome
+    // Update our prediction model with actual outcome
     pht[pc] = taken;
 
-    // If the branch was taken, update the Branch Target Buffer
+    // Only store target addresses for taken branches
     if (taken)
     {
         btb[pc] = target;
