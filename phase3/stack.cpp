@@ -3,50 +3,50 @@
 #include "structs.h"
 using namespace std;
 
-// Function to initialize stack and register state
+// Sets up initial stack and register states
 void initializeStack()
 {
-    // Initialize stack pointer (x2 in RISC-V)
+    // Set stack pointer (x2 in RISC-V)
     registerFile[2] = stackBaseAddress;
 
-    // Initialize frame pointer (x8 in RISC-V convention)
+    // Set frame pointer (x8 in RISC-V convention)
     registerFile[8] = stackBaseAddress;
 
     cout << "Stack initialized: SP=0x" << hex << registerFile[2] << ", FP=0x" << registerFile[8] << dec << endl;
 }
 
-// Function to push a value onto the stack
+// Adds a value to the stack
 void pushToStack(int value)
 {
-    // Update stack pointer (grows downward)
+    // Move stack pointer down (stack grows downward)
     stackPointer -= 4;
 
-    // Store the value at the new stack pointer location
+    // Write value to memory at the stack location
     for (int i = 0; i < 4; i++)
     {
         dataMemory[stackPointer + i] = (value >> (8 * i)) & 0xFF;
     }
 
-    // Update SP register
+    // Update SP register value
     registerFile[2] = stackPointer;
 
     cout << "Pushed value " << value << " to stack at address 0x" << hex << stackPointer << dec << endl;
 }
 
-// Function to pop a value from the stack
+// Retrieves and removes a value from the stack
 int popFromStack()
 {
-    // Read the value from the current stack pointer location
+    // Extract value from current stack position
     int value = 0;
     for (int i = 0; i < 4; i++)
     {
         value |= (dataMemory[stackPointer + i] << (8 * i));
     }
 
-    // Update stack pointer (grows downward)
+    // Move stack pointer up
     stackPointer += 4;
 
-    // Update SP register
+    // Update SP register value
     registerFile[2] = stackPointer;
 
     cout << "Popped value " << value << " from stack at address 0x" << hex << stackPointer - 4 << dec << endl;
@@ -54,13 +54,13 @@ int popFromStack()
     return value;
 }
 
-// Function to allocate space on the stack (for local variables)
+// Reserves memory on the stack for local variables
 void allocateStackSpace(unsigned int size)
 {
-    // Ensure size is aligned to 4 bytes (word alignment)
+    // Word-align the size (multiple of 4 bytes)
     size = (size + 3) & ~3;
 
-    // Update stack pointer
+    // Move stack pointer down to allocate space
     stackPointer -= size;
 
     // Update SP register
@@ -69,13 +69,13 @@ void allocateStackSpace(unsigned int size)
     cout << "Allocated " << size << " bytes on stack. New SP=0x" << hex << stackPointer << dec << endl;
 }
 
-// Function to free space on the stack
+// Releases previously allocated stack memory
 void freeStackSpace(unsigned int size)
 {
-    // Ensure size is aligned to 4 bytes (word alignment)
+    // Word-align the size (multiple of 4 bytes)
     size = (size + 3) & ~3;
 
-    // Update stack pointer
+    // Move stack pointer up to free space
     stackPointer += size;
 
     // Update SP register
@@ -84,63 +84,63 @@ void freeStackSpace(unsigned int size)
     cout << "Freed " << size << " bytes from stack. New SP=0x" << hex << stackPointer << dec << endl;
 }
 
-// Function to create a new stack frame
+// Sets up a new function's stack frame
 void createStackFrame(unsigned int frameSize)
 {
-    // Save old frame pointer
+    // Store current frame pointer on stack
     pushToStack(framePointer);
 
-    // Set new frame pointer to current stack pointer
+    // Update frame pointer to current stack position
     framePointer = stackPointer;
     registerFile[8] = framePointer;
 
-    // Allocate space for local variables
+    // Make room for local variables
     allocateStackSpace(frameSize);
 
     cout << "Created new stack frame with size " << frameSize << " bytes. FP=0x" << hex << framePointer << dec << endl;
 }
 
-// Function to destroy the current stack frame
+// Cleans up the current function's stack frame
 void destroyStackFrame()
 {
-    // Restore stack pointer to frame pointer
+    // Restore stack pointer to current frame base
     stackPointer = framePointer;
     registerFile[2] = stackPointer;
 
-    // Restore previous frame pointer
+    // Retrieve previous frame pointer
     framePointer = popFromStack();
     registerFile[8] = framePointer;
 
     cout << "Destroyed stack frame. Restored FP=0x" << hex << framePointer << dec << endl;
 }
 
-// Modified execute function to handle stack operations
+// Handles stack-related processor instructions
 void executeStackOperations(Instruction instruction)
 {
     if (instruction.name == "ADDI" && instruction.rd == 2 && instruction.rs1 == 2)
     {
-        // Stack pointer adjustment (e.g., addi sp, sp, -16 to allocate space)
+        // Stack pointer adjustment instruction
         if (instruction.imm < 0)
         {
-            // Allocate stack space
+            // Negative immediate means allocate space
             allocateStackSpace(-instruction.imm);
         }
         else
         {
-            // Free stack space
+            // Positive immediate means free space
             freeStackSpace(instruction.imm);
         }
     }
     else if ((instruction.name == "SD" || instruction.name == "SW") && instruction.rs1 == 2)
     {
-        // Store to stack (e.g., sw t0, 4(sp))
+        // Store to stack operation
         unsigned int address = registerFile[2] + instruction.imm;
         cout << "Stack store: Writing register R" << instruction.rs2 << " to stack at offset "
              << instruction.imm << " from SP" << endl;
     }
     else if ((instruction.name == "LD" || instruction.name == "LW") && instruction.rs1 == 2)
     {
-        // Load from stack (e.g., lw t0, 4(sp))
+        // Load from stack operation
         unsigned int address = registerFile[2] + instruction.imm;
         cout << "Stack load: Reading from stack at offset " << instruction.imm << " from SP into R"
              << instruction.rd << endl;
