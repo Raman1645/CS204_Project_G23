@@ -3,7 +3,7 @@
 
 #include "structs.h"
 
-// Stack initialization and management functions
+// Stack management function declarations
 void initializeStack();
 void pushToStack(int value);
 int popFromStack();
