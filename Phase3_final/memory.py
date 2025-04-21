@@ -22,3 +22,4 @@ class Memory:
             # If data is a list, store each element at consecutive addresses
             for i, value in enumerate(data):
                 self.memory[i * 4] = value
+                
