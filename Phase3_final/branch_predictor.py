@@ -77,6 +77,7 @@ class BranchPredictor:
                 "PC": f"0x{pc:04x}",
                 "Target": f"0x{target:04x}"
             })
+
         
         return {
             "pattern_history_table": pht_entries,
