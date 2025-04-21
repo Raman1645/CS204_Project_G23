@@ -321,6 +321,7 @@ if st.session_state.processor:
             st.dataframe(bp_data[0])
             st.write("Pattern History Table (PHT)")
             st.dataframe(bp_data[1])
+
     
     # Display instruction trace
     st.header("Instruction Trace")
