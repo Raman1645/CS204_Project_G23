@@ -3,7 +3,7 @@
 
 #include "structs.h"
 
-// External declarations for stall and flush flags
+// Pipeline control flags for stalls and flushes
 extern bool stall_fetch;
 extern bool stall_decode;
 extern bool stall_execute;
@@ -15,7 +15,7 @@ extern bool flush_decode;
 extern bool flush_execute;
 extern bool flush_memory;
 
-// Hazard detection and handling
+// Function declarations for hazard detection and handling
 void detectAndHandleHazards();
 bool detectDataHazard();
 bool detectControlHazard();
