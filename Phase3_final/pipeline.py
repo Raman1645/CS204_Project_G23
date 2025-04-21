@@ -777,6 +777,7 @@ class Pipeline:
             self.ex_mem.to_dict(),
             self.mem_wb.to_dict()
         ]
+
     
     def get_register_file(self):
         """Return the register file contents for display"""
