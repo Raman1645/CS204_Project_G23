@@ -18,6 +18,7 @@ def parse_instruction(instruction):
     """Parse an instruction string into its components"""
     if not isinstance(instruction, str):
         return None
+        
     
     # Trim whitespace and split by spaces
     parts = instruction.strip().split()
