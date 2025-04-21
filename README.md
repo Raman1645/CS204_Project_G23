@@ -123,3 +123,170 @@ The assembler performs a two-pass process:
 2. Second pass: processes and encodes instructions using the label information
 
 Each instruction type has its own dedicated processing function that handles the specific encoding requirements for that format.
+
+
+
+# Phase 3: RISC-V Pipelined Simulator
+
+## Overview
+This phase implements a pipelined RISC-V processor simulator with hazard detection, data forwarding, and branch prediction capabilities. The simulator includes both pipelined and non-pipelined execution modes.
+
+## Features
+
+### Pipeline Implementation
+- Five-stage pipeline: IF (Instruction Fetch), ID (Instruction Decode), EX (Execute), MEM (Memory), WB (Writeback)
+- Pipeline register storage between stages
+- Dynamic branch prediction with Branch Target Buffer (BTB)
+- Data hazard detection and resolution
+- Support for control hazards with pipeline flushing
+
+### Hazard Handling
+- Data Hazards (RAW, WAR, WAW)
+- Control Hazards (Branch/Jump instructions)
+- Structural Hazards
+- Data Forwarding support
+- Load-use hazard detection
+- Branch misprediction recovery
+
+### Memory System
+- Instruction memory
+- Data memory
+- Register file (32 registers)
+- Stack memory implementation
+
+### Performance Monitoring
+- Cycle-accurate simulation
+- Pipeline stall tracking
+- Branch prediction statistics
+- Instruction execution counts
+- Hazard occurrence tracking
+
+## Files Structure
+- `pipelined.cpp/h`: Main pipeline implementation
+- `hazards.cpp/h`: Hazard detection and handling
+- `stats.cpp/h`: Performance statistics tracking
+- `globals.cpp/h`: Global variables and constants
+- `structs.cpp/h`: Data structures for pipeline stages
+- `stack.cpp/h`: Stack memory implementation
+- `utils.cpp/h`: Utility functions
+- `nonPipelined.cpp/h`: Non-pipelined execution mode
+
+## Usage
+
+### Compilation
+```bash
+g++ -o simulator *.cpp
+```
+
+### Running
+```bash
+./simulator
+```
+
+### Input Format
+The simulator accepts machine code in hexadecimal format:
+```
+0x00500113    # addi x2, x0, 5
+0x00310233    # add x4, x2, x3
+```
+
+## Configuration Options
+- Enable/disable pipelining
+- Enable/disable data forwarding
+- Enable/disable branch prediction
+- Configure performance monitoring options
+
+## Statistics Output
+The simulator provides detailed statistics including:
+- Total cycles executed
+- Number of instructions completed
+- Pipeline stalls count
+- Branch prediction accuracy
+- Data hazard occurrences
+- Control hazard occurrences
+
+## Example Output
+```
+======= Cycle 10 =======
+IF Stage: 0x00500113
+ID Stage: 0x00310233
+EX Stage: Stalled
+MEM Stage: 0x00128293
+WB Stage: 0x00100193
+```
+
+# 🚀 CS204 Phase 3: GUI Implementation 
+
+This repository contains both **Python** (with GUI) and **C++** implementations of a five-stage pipelined 32-bit RISC-V processor simulator, developed as part of **Phase 3** of the CS204 - Computer Architecture course project.
+
+---
+
+## 📜 Objective
+
+To simulate a **RISC-V pipelined processor** with:
+- Support for all standard RISC-V 32-bit instructions
+- Pipeline registers between stages (IF, ID, EX, MEM, WB)
+- Data hazard resolution via **stalling** and **forwarding**
+- Control hazard resolution using **1-bit dynamic branch prediction**
+- Separate **text and data segments**
+- Multiple debug knobs for tracing and analysis
+- Final execution statistics and memory dump
+- **Bonus GUI** (Python/Streamlit)
+
+---
+
+## 📁 File Structure
+
+### Python (GUI version)
+| File          | Description |
+|---------------|-------------|
+| `app.py`      | Streamlit GUI frontend with control knobs and visualization |
+| `memory.py`   | Memory module handling text and data memory |
+| `pipeline.py` | Pipeline implementation with registers, forwarding, stalling |
+| `processor.py`| Processor controller managing stats, knobs, and cycles |
+
+### C++ (CLI version)
+| File             | Description |
+|------------------|-------------|
+| `pipelined.cpp`  | Core pipelined simulator logic and stage implementations |
+| `hazards.cpp`    | Hazard detection, data forwarding, flushing logic |
+| `structs.cpp`    | Branch predictor and related structures |
+| `utils.cpp`      | Utility functions for hex/bin conversion and memory loading |
+
+---
+
+## 🕹️ Execution Knobs
+
+The simulator supports the following **debugging and tracing knobs**:
+
+| Knob # | Description |
+|--------|-------------|
+| Knob1  | Enable/Disable pipelining |
+| Knob2  | Enable/Disable data forwarding |
+| Knob3  | Print full register file each cycle |
+| Knob4  | Print pipeline register contents per cycle |
+| Knob5  | Trace pipeline stages for a specific instruction |
+| Knob6  | Print Branch Prediction Unit (BTB & PHT) status |
+
+---
+
+## 📊 Output Statistics
+
+At the end of the simulation, the following stats are generated and saved in `pipeline_stats.txt`:
+
+- Total clock cycles
+- Total instructions executed
+- CPI (Cycles Per Instruction)
+- Number of:
+  - Data-transfer instructions (load/store)
+  - ALU instructions
+  - Control instructions
+  - Pipeline stalls
+  - Data hazards
+  - Control hazards
+  - Branch mispredictions
+  - Stalls due to data hazards
+  - Stalls due to control hazards
+
+---
+
