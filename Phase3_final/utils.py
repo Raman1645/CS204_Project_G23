@@ -20,7 +20,7 @@ def parse_instruction_file(file):
             instructions.append(line)
         
         return instructions
-    except Exception as e:
+    except Exception as e:        #error in parsing the instruction
         print(f"Error parsing instruction file: {e}")
         return []
 
