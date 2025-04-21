@@ -8,7 +8,7 @@
 
 using namespace std;
 
-// Pipeline stall and flush flags
+// Pipeline control flags
 bool stall_fetch = false;
 bool stall_decode = false;
 bool stall_execute = false;
@@ -19,19 +19,21 @@ bool flush_fetch = false;
 bool flush_decode = false;
 bool flush_execute = false;
 bool flush_memory = false;
+
+// Forward declaration for pipeline flush functionality
 void flushPipeline(int fromStage);
-// Main hazard detection function
-// Main hazard detection function
+
+// Main function to identify and resolve hazards in the pipeline
 void detectAndHandleHazards()
 {
-    // Reset stall and flush flags
+    // Reset all control flags at the beginning of each cycle
     stall_fetch = stall_decode = stall_execute = stall_memory = stall_writeback = false;
     flush_fetch = flush_decode = flush_execute = flush_memory = false;
 
-    // Detect data hazards first
+    // First check for data dependencies between instructions
     bool dataHazardDetected = detectDataHazard();
 
-    // If data forwarding is enabled, try to handle without stalling
+    // Handle data hazards differently based on forwarding configuration
     if (dataHazardDetected)
     {
         if (knob_data_forwarding)
@@ -39,76 +41,72 @@ void detectAndHandleHazards()
             cout << "Data hazard detected but handling with forwarding" << endl;
             handleDataForwarding();
 
-            // Check if we still need to stall for load-use hazards
+            // Special case: Load-use hazard
+            // We can't forward from memory until the MEM stage completes
             if (ex_mem.decodedInst.type == "Load_I-Type" &&
                 id_ex.decodedInst.type != "" &&
                 (id_ex.decodedInst.rs1 == ex_mem.decodedInst.rd ||
                  id_ex.decodedInst.rs2 == ex_mem.decodedInst.rd))
             {
-                // Can't forward from memory until MEM stage is complete
                 cout << "Load-use hazard detected, must stall even with forwarding enabled" << endl;
-                insertStall(2); // Stall ID stage
+                insertStall(2); // Stall at ID stage
                 data_hazards++;
             }
         }
         else
         {
-            // Data forwarding disabled, must stall
+            // Without forwarding, we need to stall the pipeline
             cout << "Data hazard detected and forwarding disabled, inserting stall" << endl;
-            insertStall(2); // Stall ID stage
+            insertStall(2); // Stall at ID stage
             data_hazards++;
         }
     }
 
-    // Detect control hazards
+    // Now check for control flow hazards
     bool controlHazardDetected = detectControlHazard();
 
-    // Update statistics for hazards
+    // Update hazard statistics
     if (controlHazardDetected)
         control_hazards++;
 }
 
-// Detect RAW (Read After Write) data hazards
+// Detect Read-After-Write (RAW) data hazards in the pipeline
 bool detectDataHazard()
 {
-    // Check if the instruction in ID stage needs a register that is
-    // being written to in EX, MEM, or WB stages
-
-    // Only check if there's an instruction in ID stage that uses registers
+    // Nothing to check if the decode stage is empty
     if (if_id.instruction.empty())
     {
         return false;
     }
 
-    // Need to check what registers the instruction in ID will need
-    // Use the binary instruction to get opcode and registers
+    // Extract register dependencies from the binary instruction
     if (!if_id.instruction.empty())
     {
         string binInst = hex2bin(if_id.instruction);
         int opcode = stoi(binInst.substr(25, 7), nullptr, 2);
 
-        // Get source registers based on instruction format
+        // Determine which source registers are used by this instruction
         int rs1 = -1, rs2 = -1;
 
-        // Most instruction formats have rs1 in the same place
+        // Most instructions use rs1 except LUI, AUIPC, JAL
         if (opcode != 0b0110111 && opcode != 0b0010111 && opcode != 0b1101111)
-        { // Not LUI, AUIPC, JAL
+        { 
             rs1 = stoi(binInst.substr(12, 5), nullptr, 2);
         }
 
-        // R-type, S-type, and B-type have rs2
+        // R-type, S-type, and B-type instructions use rs2
         if (opcode == 0b0110011 || opcode == 0b0100011 || opcode == 0b1100011)
         {
             rs2 = stoi(binInst.substr(7, 5), nullptr, 2);
         }
 
-        // Skip if both source registers are 0 (x0 is hardwired to 0)
+        // Register x0 is hardwired to zero, so no hazard possible
         if (rs1 == 0 && rs2 == 0)
         {
             return false;
         }
 
-        // Check hazard with EX stage
+        // Check for hazards with the instruction in EX stage
         if (id_ex.decodedInst.type != "" && id_ex.decodedInst.rd != 0)
         {
             if ((rs1 != -1 && rs1 == id_ex.decodedInst.rd) ||
@@ -124,7 +122,7 @@ bool detectDataHazard()
             }
         }
 
-        // Check hazard with MEM stage
+        // Check for hazards with the instruction in MEM stage
         if (ex_mem.decodedInst.type != "" && ex_mem.decodedInst.rd != 0)
         {
             if ((rs1 != -1 && rs1 == ex_mem.decodedInst.rd) ||
@@ -140,8 +138,8 @@ bool detectDataHazard()
             }
         }
 
-        // Check hazard with WB stage - normally this can be resolved by forwarding
-        // but including for completeness
+        // Check for hazards with the instruction in WB stage
+        // This is usually resolved by forwarding but included for completeness
         if (mem_wb.decodedInst.type != "" && mem_wb.decodedInst.rd != 0)
         {
             if ((rs1 != -1 && rs1 == mem_wb.decodedInst.rd) ||
@@ -160,22 +158,19 @@ bool detectDataHazard()
     return false;
 }
 
-// Detect control hazards (branches and jumps)
+// Detect and handle control flow hazards from branches and jumps
 bool detectControlHazard()
 {
-    // Implementation of control hazard detection logic
-
-    // Check if EX stage has a branch or jump instruction
+    // Check if the execute stage contains a branch or jump instruction
     if (id_ex.decodedInst.type == "SB-Type" ||
         id_ex.decodedInst.type == "JAL_J-Type" ||
         id_ex.decodedInst.type == "JALR_I-Type")
     {
-
-        // Control hazard detected
+        // Control hazard found
         return true;
     }
 
-    // Check if branch prediction was incorrect (in MEM stage)
+    // Verify branch prediction accuracy (checked in MEM stage)
     if (ex_mem.decodedInst.type == "SB-Type")
     {
         bool actualBranchTaken = ex_mem.branchTaken;
@@ -183,21 +178,21 @@ bool detectControlHazard()
 
         if (predicted_pc == ex_mem.pc)
         {
-            // This was a predicted branch, check if prediction was correct
+            // This branch was predicted - check if correctly
             if ((predicted_branch && !actualBranchTaken) ||
                 (!predicted_branch && actualBranchTaken))
             {
-                // Misprediction detected
+                // Branch was mispredicted
                 branch_mispredictions++;
 
-                // Flush pipeline and restart from correct target
+                // Recover by flushing pipeline and redirecting to correct path
                 if (actualBranchTaken)
                 {
                     currentPC = ex_mem.branchTarget;
                 }
                 else
                 {
-                    // Convert PC to int, add 4, convert back to hex string
+                    // Branch not taken, go to next sequential instruction
                     unsigned int pc_val = stoul(ex_mem.pc.substr(2), nullptr, 16);
                     pc_val += 4;
                     stringstream ss;
@@ -205,8 +200,8 @@ bool detectControlHazard()
                     currentPC = "0x" + ss.str();
                 }
 
-                // Flush wrong path instructions
-                flushPipeline(2); // Flush from IF to EX stages
+                // Clear instructions from wrong path
+                flushPipeline(2); // Flush IF through EX stages
 
                 return true;
             }
@@ -216,48 +211,46 @@ bool detectControlHazard()
     return false;
 }
 
-// Handle data forwarding when enabled
+// Implement register value forwarding to resolve data hazards
 void handleDataForwarding()
 {
-    // Implementation of data forwarding logic
-
-    // Example: Forward from MEM to EX stage if needed
+    // Only process if there's a valid instruction in EX stage
     if (id_ex.decodedInst.type != "")
     {
         int rs1 = id_ex.decodedInst.rs1;
         int rs2 = id_ex.decodedInst.rs2;
 
-        // Forward from EX/MEM pipeline register if needed
+        // Check if values can be forwarded from MEM stage
         if (ex_mem.decodedInst.type != "" && ex_mem.decodedInst.rd != 0)
         {
             if (rs1 == ex_mem.decodedInst.rd)
             {
-                // Forward result from EX/MEM to rs1 input of ALU
+                // Forward MEM result to first ALU input
                 id_ex.rs1_value = ex_mem.aluResult;
                 cout << "Forwarding EX/MEM result to RS1 in EX stage" << endl;
             }
             if (rs2 == ex_mem.decodedInst.rd)
             {
-                // Forward result from EX/MEM to rs2 input of ALU
+                // Forward MEM result to second ALU input
                 id_ex.rs2_value = ex_mem.aluResult;
                 cout << "Forwarding EX/MEM result to RS2 in EX stage" << endl;
             }
         }
 
-        // Forward from MEM/WB pipeline register if needed
+        // Check if values can be forwarded from WB stage
+        // Lower priority than MEM forwarding
         if (mem_wb.decodedInst.type != "" && mem_wb.decodedInst.rd != 0)
         {
+            // Only forward from WB if no forwarding from MEM for this register
             if (rs1 == mem_wb.decodedInst.rd &&
                 !(ex_mem.decodedInst.type != "" && ex_mem.decodedInst.rd == rs1))
             {
-                // Forward result from MEM/WB to rs1 input of ALU
                 id_ex.rs1_value = mem_wb.writebackData;
                 cout << "Forwarding MEM/WB result to RS1 in EX stage" << endl;
             }
             if (rs2 == mem_wb.decodedInst.rd &&
                 !(ex_mem.decodedInst.type != "" && ex_mem.decodedInst.rd == rs2))
             {
-                // Forward result from MEM/WB to rs2 input of ALU
                 id_ex.rs2_value = mem_wb.writebackData;
                 cout << "Forwarding MEM/WB result to RS2 in EX stage" << endl;
             }
@@ -265,43 +258,42 @@ void handleDataForwarding()
     }
 }
 
-// Insert a stall in the pipeline
-// Insert a stall in the pipeline
+// Insert a pipeline stall at the specified stage
 void insertStall(int stageNum)
 {
-    // Stall appropriate stages based on where the stall is needed
+    // Apply appropriate stalls based on which stage needs to be frozen
     switch (stageNum)
     {
-    case 1: // Stall Fetch
+    case 1: // Stall at Fetch
         stall_fetch = true;
         pipeline_stalls++;
         cout << "Inserting stall at Fetch stage" << endl;
         break;
-    case 2: // Stall Decode
+    case 2: // Stall at Decode
         stall_fetch = true;
         stall_decode = true;
-        // Insert a bubble into the execute stage (NOP)
+        // Create a bubble (NOP) in the execute stage
         id_ex.decodedInst.type = "";
         id_ex.decodedInst.name = "NOP";
         pipeline_stalls++;
         cout << "Inserting stall at Decode stage, bubbling the pipeline" << endl;
         break;
-    case 3: // Stall Execute
+    case 3: // Stall at Execute
         stall_fetch = true;
         stall_decode = true;
         stall_execute = true;
-        // Insert a bubble into the memory stage
+        // Create a bubble in the memory stage
         ex_mem.decodedInst.type = "";
         ex_mem.decodedInst.name = "NOP";
         pipeline_stalls++;
         cout << "Inserting stall at Execute stage, bubbling the pipeline" << endl;
         break;
-    case 4: // Stall Memory
+    case 4: // Stall at Memory
         stall_fetch = true;
         stall_decode = true;
         stall_execute = true;
         stall_memory = true;
-        // Insert a bubble into the writeback stage
+        // Create a bubble in the writeback stage
         mem_wb.decodedInst.type = "";
         mem_wb.decodedInst.name = "NOP";
         pipeline_stalls++;
@@ -310,57 +302,54 @@ void insertStall(int stageNum)
     }
 }
 
-// Flush the pipeline from a given stage
+// Flush pipeline stages to clear incorrect speculative execution
 void flushPipeline(int fromStage)
 {
-
-    // Flush appropriate stages based on where the flush is needed
+    // Apply flushes to clear the appropriate stages
     switch (fromStage)
     {
-    case 1: // Flush Fetch
+    case 1: // Flush from Fetch
         flush_fetch = true;
-        if_id = IF_ID_Register();
+        if_id = IF_ID_Register(); // Reset IF/ID register
         break;
-    case 2: // Flush Decode
+    case 2: // Flush from Decode
         flush_fetch = true;
         flush_decode = true;
-        if_id = IF_ID_Register();
-        id_ex = ID_EX_Register();
+        if_id = IF_ID_Register(); // Reset IF/ID register
+        id_ex = ID_EX_Register(); // Reset ID/EX register
         break;
-    case 3: // Flush Execute
+    case 3: // Flush from Execute
         flush_fetch = true;
         flush_decode = true;
         flush_execute = true;
-        if_id = IF_ID_Register();
-        id_ex = ID_EX_Register();
-        ex_mem = EX_MEM_Register();
+        if_id = IF_ID_Register(); // Reset IF/ID register
+        id_ex = ID_EX_Register(); // Reset ID/EX register
+        ex_mem = EX_MEM_Register(); // Reset EX/MEM register
         break;
     }
 }
 
-// Check if a forwarding path exists for a specific register
+// Check if a value can be forwarded for a specific register
 // Returns true if forwarding is possible and updates forwardedValue
 bool checkForwardingPath(int srcReg, int *forwardedValue)
 {
-    // Skip register 0 which is hardwired to 0
+    // Register x0 is hardwired to 0
     if (srcReg == 0)
     {
         *forwardedValue = 0;
         return true;
     }
 
-    // Check EX/MEM forwarding path (highest priority)
+    // First priority: Forward from MEM stage
     if (ex_mem.decodedInst.type != "" && ex_mem.decodedInst.rd != 0 && ex_mem.decodedInst.rd == srcReg)
     {
-        // Forward ALU result from EX/MEM
         *forwardedValue = ex_mem.aluResult;
         return true;
     }
 
-    // Check MEM/WB forwarding path (lower priority)
+    // Second priority: Forward from WB stage
     if (mem_wb.decodedInst.type != "" && mem_wb.decodedInst.rd != 0 && mem_wb.decodedInst.rd == srcReg)
     {
-        // Forward writeback value from MEM/WB
         *forwardedValue = mem_wb.writebackData;
         return true;
     }
