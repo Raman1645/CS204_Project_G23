@@ -20,14 +20,5 @@ void printPipelineRegisters();
 void printBranchPredictorState();
 void traceSpecificInstruction(int instructionNumber);
 
-// Helper function for instruction execution
-// void executeInPipeline();
-
-// Hazard detection and handling
-// void detectAndHandleHazards();
-// void detectStructuralHazard();
-
-// Data forwarding logic
-// bool checkForwardingPath(int srcReg, int* forwardedValue);
 
 #endif // PIPELINED_H
